@@ -16,14 +16,8 @@ It should be able to connect to any frontend platform: web, desktop, mobile...
 [] - Screen Sharing
 [] - load testing
 
-# Rust
+## Tech
 
-Handles Everything.
-
-# SQlite
-
-The only reason we're using sqlite and not postgres is cause I want to keep everything in this folder.
-
-# WebRTC
-
-Video, Voice and Screensharing.
+- Rust
+- Postgres
+- WebRTC

@@ -5,7 +5,8 @@ use dotenv::dotenv;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
 mod handlers;
-mod models;
+mod model;
+mod schema;
 
 use handlers::hello_world;
 

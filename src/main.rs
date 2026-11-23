@@ -5,6 +5,8 @@ use dotenv::dotenv;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
 mod handlers;
+mod models;
+
 use handlers::hello_world;
 
 pub struct AppState {

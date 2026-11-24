@@ -7,8 +7,10 @@ use sqlx::{PgPool, postgres::PgPoolOptions};
 mod handlers;
 mod model;
 mod schema;
+mod route;
 
 use handlers::hello_world;
+use crate::route::create_router;
 
 pub struct AppState {
     db: PgPool,
@@ -27,7 +29,7 @@ async fn main(){
     };
 
     // server
-    let app = Router::new().route("/api", get(hello_world)).with_state(Arc::new(AppState {db: pool.clone() }));
+    let app = create_router(Arc::new(AppState {db: pool.clone() }));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("Server started at 0.0.0.0:3000");

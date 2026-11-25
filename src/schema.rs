@@ -7,6 +7,13 @@ pub struct UserSchema {
     pub password: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LoginSchema {
+    pub username: String,
+    pub password: String,
+}
+
+
 /*
 {
     "username": "user.lastname",

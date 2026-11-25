@@ -4,13 +4,18 @@ use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use serde_json::json;
 use dotenv::dotenv;
 
-use crate::{AppState, model::User, schema::UserSchema};
+use crate::{AppState, model::User, schema::{LoginSchema, UserSchema}};
 
 use argon2::{
-    password_hash::{PasswordHasher},
+    password_hash::{PasswordHasher, phc::PasswordHash, PasswordVerifier}, 
     Algorithm, Argon2, Params, Version
 };
 
+
+/// TODO
+/// Rate Limitting
+/// JWT Access Token
+/// Refresh tokens
 
 pub async fn create_user_handler(
     State(data): State<Arc<AppState>>,
@@ -21,7 +26,7 @@ pub async fn create_user_handler(
     let id = uuid::Uuid::new_v4();
 
     // hashing
-    let password = b"body.password";
+    let password = body.password.as_bytes();
     let pepper = std::env::var("PEPPER_ARGON").expect("PEPPER_ARGON Needs to be configured");
     let pepper_as_bytes = pepper.as_bytes();
 
@@ -51,7 +56,7 @@ pub async fn create_user_handler(
         .map_err(|e| e.to_string());
 
     if let Err(err) = user {
-         if err.to_string().contains("duplicate key value") {
+        if err.to_string().contains("duplicate key value") {
             let error_response = serde_json::json!({
                 "status": "error",
                 "message": "User already exists",
@@ -76,6 +81,81 @@ pub async fn create_user_handler(
 }
 
 
+pub async fn login_user_handler(
+    State(data): State<Arc<AppState>>,
+    Json(body): Json<LoginSchema>) 
+    -> 
+    Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)>{
+
+
+        // get the user from the DB
+    let user = sqlx::query_as!(
+            User,
+            r#"
+                SELECT id, username, email, password, created_at, updated_at
+                FROM users
+                WHERE username = $1 
+                LIMIT 1
+            "#,
+            body.username,
+        )
+        .fetch_optional(&data.db)
+        .await
+        .map_err(|e| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": e.to_string()})),
+    ))?;
+
+    let user = user.ok_or((
+        StatusCode::UNAUTHORIZED,
+        Json(json!({"error": "Invalid credentials"})),
+    ))?;
+
+    // Verify password
+    let password = body.password.as_bytes();
+    let pepper = std::env::var("PEPPER_ARGON").map_err(|_| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": "Auth Configuration Error"})),
+        ))?;
+    let pepper_as_bytes = pepper.as_bytes();
+
+    let parsed_hash = PasswordHash::new(&user.password).map_err(|_| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": "Invalid stored password hash"})),
+        ))?;
+    
+    let argon2 = Argon2::new_with_secret(
+        pepper_as_bytes,
+        Algorithm::default(),
+        Version::default(),
+        Params::default(),
+    )
+    .map_err(|_| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": "Authentication configuration error"})),
+        ))?;
+
+    argon2.verify_password(password, &parsed_hash) .map_err(|_| (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({"error": "Invalid credentials"})),
+        ))?;
+
+    
+    let login_response = json!({
+        "status": "success",
+        "data": {
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+            }
+        }
+    });
+
+    Ok(Json(login_response))
+}
+
+// for history
 pub async fn hello_world() -> impl IntoResponse {
     let json_response = json!({
         "status" : "ok",
@@ -83,3 +163,5 @@ pub async fn hello_world() -> impl IntoResponse {
     });
     Json(json_response)
 }
+
+

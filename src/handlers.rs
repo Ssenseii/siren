@@ -5,7 +5,7 @@ use serde_json::json;
 use dotenv::dotenv;
 use uuid::Uuid;
 
-use crate::{AppState, model::{User, UserResponse}, schema::{LoginSchema, UserSchema}};
+use crate::{AppState, model::{User, UserResponse}, schema::{LoginSchema, UpdateUserSchema, UserSchema}};
 
 use argon2::{
     password_hash::{PasswordHasher, phc::PasswordHash, PasswordVerifier}, 
@@ -135,6 +135,92 @@ pub async fn get_user_handler(
     Ok(Json(user_response))
 }
 
+
+pub async fn update_user_handler(
+    Path(user_id): Path<Uuid>,
+    State(data): State<Arc<AppState>>,
+    Json(body): Json<UpdateUserSchema>
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+
+    let user = sqlx::query_as!(
+        User,
+        r#"SELECT * FROM users WHERE id = $1"#,
+        &user_id
+    )
+    .fetch_one(&data.db)
+    .await
+    .map_err(|e| (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({"error": e.to_string()})),
+    ))?;
+
+    // Verify password
+
+    // 1. get the sent password as text, transform to bytes
+    let old_password = body.old_password.as_bytes();
+    // 2. get the pepper
+    let pepper = std::env::var("PEPPER_ARGON").map_err(|_| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": "Auth Configuration Error"})),
+        ))?;
+    
+    let pepper_as_bytes = pepper.as_bytes();
+
+    // 3. get the user's existing hash.
+    let parsed_hash = PasswordHash::new(&user.password).map_err(|_| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": "Invalid stored password hash"})),
+        ))?;
+    
+    let argon2 = Argon2::new_with_secret(
+        pepper_as_bytes,
+        Algorithm::default(),
+        Version::default(),
+        Params::default(),
+    )
+    .map_err(|_| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": "Authentication configuration error"})),
+        ))?;
+
+    // 4. verify that the password provided and the hash match
+    argon2.verify_password(old_password, &parsed_hash) .map_err(|_| (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({"error": "Invalid credentials"})),
+        ))?;
+
+    // Update the User Info
+
+    let updated_user = sqlx::query_as!(
+        User,  
+        r#"UPDATE users SET password = $1 WHERE id = $2 RETURNING *"#,
+        &body.new_password,
+        &user_id,
+    )
+    .fetch_one(&data.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "status": "error",
+                "message": format!("{:?}", e)
+            })),
+        )
+    })?;
+
+    // update the found user's password after confirming old is true.
+    let user_response = json!({
+        "status": "success",
+        "data": json!({
+                "user": updated_user
+                })
+            });
+
+    Ok(Json(user_response))
+}
+
+
 pub async fn delete_user_handler(
     Path(user_id): Path<Uuid>,
     State(data): State<Arc<AppState>>,
@@ -176,9 +262,6 @@ pub async fn delete_user_handler(
 }
 
 
-
-
-
 pub async fn login_user_handler(
     State(data): State<Arc<AppState>>,
     Json(body): Json<LoginSchema>) 
@@ -209,13 +292,17 @@ pub async fn login_user_handler(
     ))?;
 
     // Verify password
+    // 1. get the sent password as text, transform to bytes
     let password = body.password.as_bytes();
+    // 2. get the pepper
     let pepper = std::env::var("PEPPER_ARGON").map_err(|_| (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({"error": "Auth Configuration Error"})),
         ))?;
+    
     let pepper_as_bytes = pepper.as_bytes();
 
+    // 3. get the user's existing hash.
     let parsed_hash = PasswordHash::new(&user.password).map_err(|_| (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({"error": "Invalid stored password hash"})),
@@ -232,6 +319,7 @@ pub async fn login_user_handler(
             Json(json!({"error": "Authentication configuration error"})),
         ))?;
 
+    // 4. verify that the password provided and the hash match
     argon2.verify_password(password, &parsed_hash) .map_err(|_| (
             StatusCode::UNAUTHORIZED,
             Json(json!({"error": "Invalid credentials"})),

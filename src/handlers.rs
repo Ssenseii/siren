@@ -1,10 +1,11 @@
-use std::sync::Arc;
+use std::{sync::Arc};
 
-use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
+use axum::{Json, extract::{State, Path}, http::StatusCode, response::IntoResponse};
 use serde_json::json;
 use dotenv::dotenv;
+use uuid::Uuid;
 
-use crate::{AppState, model::User, schema::{LoginSchema, UserSchema}};
+use crate::{AppState, model::{User, UserResponse}, schema::{LoginSchema, UserSchema}};
 
 use argon2::{
     password_hash::{PasswordHasher, phc::PasswordHash, PasswordVerifier}, 
@@ -81,12 +82,65 @@ pub async fn create_user_handler(
 }
 
 
+pub async fn user_list_handler(
+    State(data): State<Arc<AppState>>
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    let users = sqlx::query_as!(
+        UserResponse,
+        r#"SELECT * FROM users ORDER by created_at"#
+    ).fetch_all(&data.db)
+    .await
+    .map_err(|e| (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({"error": e.to_string()})),
+    ))?;
+
+    // Filter Password
+    
+    let json_response = serde_json::json!({
+        "status" : "ok",
+        "count" : users.len(),
+        "data": users
+    });
+
+    Ok(Json(json_response))
+}
+
+
+
+pub async fn get_user_handler(
+    Path(user_id): Path<Uuid>,
+    State(data): State<Arc<AppState>>,
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+
+    let user = sqlx::query_as!(
+        UserResponse,
+        r#"SELECT * FROM users WHERE id = $1"#,
+        &user_id
+    )
+    .fetch_one(&data.db)
+    .await
+    .map_err(|e| (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({"error": e.to_string()})),
+    ))?;
+
+    let user_response = json!({
+        "status": "success",
+        "data": json!({
+                "user": user
+                })
+            });
+
+    Ok(Json(user_response))
+}
+
+
 pub async fn login_user_handler(
     State(data): State<Arc<AppState>>,
     Json(body): Json<LoginSchema>) 
     -> 
     Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)>{
-
 
         // get the user from the DB
     let user = sqlx::query_as!(
@@ -154,6 +208,7 @@ pub async fn login_user_handler(
 
     Ok(Json(login_response))
 }
+
 
 // for history
 pub async fn hello_world() -> impl IntoResponse {

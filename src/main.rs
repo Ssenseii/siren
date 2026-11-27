@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use axum::{Router, routing::get};
 use dotenv::dotenv;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 

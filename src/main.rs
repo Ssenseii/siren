@@ -8,7 +8,6 @@ mod model;
 mod schema;
 mod route;
 
-use handlers::hello_world;
 use crate::route::create_router;
 
 pub struct AppState {

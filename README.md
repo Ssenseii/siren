@@ -8,13 +8,12 @@ It should be able to connect to any frontend platform: web, desktop, mobile...
 
 ## To-do
 
-[] - Authentication and Profiles
-[] - Websocket Messaging
-[] - File Sharing
-[] - Voice Channels
-[] - Video Calls
-[] - Screen Sharing
-[] - load testing
+    [X] - Authentication and Profiles
+    [] - Websocket Messaging
+    [] - File Sharing
+    [] - Voice Channels
+    [] - Video Calls
+    [] - Screen Sharing
 
 ## Tech
 

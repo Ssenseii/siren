@@ -143,7 +143,7 @@ pub async fn update_user_handler(
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
 
     let user = sqlx::query_as!(
-        User,
+        UserResponse,
         r#"SELECT * FROM users WHERE id = $1"#,
         &user_id
     )
@@ -191,10 +191,13 @@ pub async fn update_user_handler(
 
     // Update the User Info
 
+
+    let new_password_hash = argon2.hash_password(body.new_password.as_bytes()).unwrap().to_string();
+
     let updated_user = sqlx::query_as!(
         User,  
         r#"UPDATE users SET password = $1 WHERE id = $2 RETURNING *"#,
-        &body.new_password,
+        new_password_hash,
         &user_id,
     )
     .fetch_one(&data.db)
@@ -252,7 +255,7 @@ pub async fn delete_user_handler(
 
     let response = json!({
         "status": "success",
-        "message": "Game delete successfully",
+        "message": "User deleted successfully",
         "data": {
             "deleted_user": query_result
         }

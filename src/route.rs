@@ -6,7 +6,7 @@ use crate::{AppState, handlers::{hello_world, create_user_handler, login_user_ha
 
 pub fn create_router(app_state: Arc<AppState>) -> Router {
     Router::new()
-    .route("/api/hello", post(hello_world))
+    .route("/api/hello", get(hello_world))
     
     .route("/api/users", get(user_list_handler))
     .route("/api/user/{id}", get(get_user_handler))

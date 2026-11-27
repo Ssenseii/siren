@@ -211,12 +211,13 @@ pub async fn login_user_handler(
 
 
 // for history
-pub async fn hello_world() -> impl IntoResponse {
+pub async fn hello_world() -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     let json_response = json!({
         "status" : "ok",
         "message" : "Hello, World!"
     });
-    Json(json_response)
+    
+    Ok(Json(json_response))
 }
 
 

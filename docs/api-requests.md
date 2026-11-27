@@ -1,5 +1,9 @@
 # Api Requests
 
+**Hello**
+
+curl -X GET -H "Content-Type: application/json" http://localhost:3000/api/hello
+
 **Create User**
 
 curl -X POST -H "Content-Type: application/json" -d '{"username": "user1", "email": "el.user@example.com", "password": "password1*"}' http://localhost:3000/api/user

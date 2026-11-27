@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use axum::{Router, routing::{get, post}};
+use axum::{Router, routing::{delete, get, post}};
 
-use crate::{AppState, handlers::{hello_world, create_user_handler, login_user_handler, user_list_handler, get_user_handler}};
+use crate::{AppState, handlers::{hello_world, create_user_handler, login_user_handler, user_list_handler, get_user_handler, delete_user_handler}};
 
 pub fn create_router(app_state: Arc<AppState>) -> Router {
     Router::new()
@@ -10,6 +10,7 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
     
     .route("/api/users", get(user_list_handler))
     .route("/api/user/{id}", get(get_user_handler))
+    .route("/api/user/{id}", delete(delete_user_handler))
     
     .route("/api/user", post(create_user_handler))
     .route("/api/login", post(login_user_handler))

@@ -135,6 +135,49 @@ pub async fn get_user_handler(
     Ok(Json(user_response))
 }
 
+pub async fn delete_user_handler(
+    Path(user_id): Path<Uuid>,
+    State(data): State<Arc<AppState>>,
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+
+    let query_result = sqlx::query_as!(
+        UserResponse,
+        r#"DELETE FROM users WHERE id = $1 RETURNING *"#,
+        &user_id
+    )
+    .fetch_one(&data.db)
+    .await
+    .map_err(|e| match e {
+        sqlx::Error::RowNotFound => (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "status": "error",
+                "message": "User not found"
+            })),
+        ),
+        _ => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "status": "error",
+                "message": format!("{:?}", e)
+            })),
+        ),
+    })?;
+
+    let response = json!({
+        "status": "success",
+        "message": "Game delete successfully",
+        "data": {
+            "deleted_user": query_result
+        }
+    });
+
+    Ok(Json(response))
+}
+
+
+
+
 
 pub async fn login_user_handler(
     State(data): State<Arc<AppState>>,
@@ -208,6 +251,9 @@ pub async fn login_user_handler(
 
     Ok(Json(login_response))
 }
+
+
+
 
 
 // for history

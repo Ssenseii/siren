@@ -16,7 +16,7 @@ pub struct AppState {
 
 // this allows the main to be async.
 #[tokio::main]
-async fn main(){ 
+async fn main() { 
 
     dotenv().ok();
     let db_url = std::env::var("DATABASE_URL").expect("DATABAS_URL must be configured");
@@ -31,6 +31,7 @@ async fn main(){
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("Server started at 0.0.0.0:3000");
+
     axum::serve(listener, app).await.unwrap();
 }
 

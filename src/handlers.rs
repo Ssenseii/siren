@@ -1,6 +1,7 @@
 use std::{sync::Arc};
 
-use axum::{Json, extract::{State, Path}, http::StatusCode, response::IntoResponse};
+use axum::{Json, extract::{State, Path}, http::StatusCode, response::{IntoResponse, Response}, extract::ws::{WebSocketUpgrade, WebSocket, Message}};
+use futures_util::{sink::SinkExt, stream::{StreamExt, SplitSink, SplitStream}};
 use serde_json::json;
 use dotenv::dotenv;
 use uuid::Uuid;
@@ -343,8 +344,37 @@ pub async fn login_user_handler(
     Ok(Json(login_response))
 }
 
+pub async fn websocket_connect(ws: WebSocketUpgrade) -> Response {
+    ws.on_upgrade(handle_socket)
+}
 
+async fn handle_socket(mut socket: WebSocket) {
+    let (mut sender, mut receiver) = socket.split();
 
+    // setup channel
+    let (tx, rx) = tokio::sync::mpsc::channel(32);
+
+    tokio::spawn(send(sender, rx));
+    tokio::spawn(receive(receiver, tx));
+}
+
+async fn receive(mut receiver: SplitStream<WebSocket>, tx: tokio::sync::mpsc::Sender<Message>){
+    // listen for incoming
+    while let Some(Ok(msg)) = receiver.next().await {
+        if tx.send(msg).await.is_err() {
+            break;
+        }
+    }
+}
+
+async fn send(mut sender: SplitSink<WebSocket, Message>, mut rx: tokio::sync::mpsc::Receiver<Message>){
+    // prepare outgoing
+    while let Some(msg) = rx.recv().await {
+        if sender.send(msg).await.is_err() {
+            break;
+        }
+    }
+}
 
 
 // for history

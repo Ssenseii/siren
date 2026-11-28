@@ -2,7 +2,17 @@ use std::sync::Arc;
 
 use axum::{Router, routing::{get, post, patch, delete}};
 
-use crate::{AppState, handlers::{create_user_handler, delete_user_handler, get_user_handler, hello_world, login_user_handler, update_user_handler, user_list_handler}};
+
+use crate::{AppState, handlers::{
+    create_user_handler,
+    delete_user_handler,
+    get_user_handler,
+    hello_world,
+    login_user_handler,
+    update_user_handler,
+    user_list_handler,
+    websocket_connect
+    }};
 
 pub fn create_router(app_state: Arc<AppState>) -> Router {
     Router::new()
@@ -15,6 +25,8 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
     .route("/api/user/{id}", delete(delete_user_handler))
     
     .route("/api/login", post(login_user_handler))
+    
+    .route("/ws", get(websocket_connect))
     
     .with_state(app_state)
 }
